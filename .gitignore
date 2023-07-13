@@ -1,0 +1,10 @@
+playright/PlaywrightTests/bin/
+playright/PlaywrightTests/obj/
+receiver/bin/
+receiver/obj/
+sender/bin/
+sender/obj/
+terraform/terraform.tfstate.backup
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/.terraform.lock.hcl
