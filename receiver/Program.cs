@@ -1,6 +1,10 @@
 ﻿//dotnet new console --language c#
 //dotnet add package Azure.Messaging.ServiceBus
 
+// https://stackoverflow.com/questions/62659336/azure-function-via-terraform-how-to-connect-to-service-bus
+// https://stackoverflow.com/questions/74531111/how-to-create-an-azure-service-bus-namespace-instance-per-developer-using-terraf
+// https://playwright.dev/dotnet/docs/pom
+
 // modelled off of: https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-dotnet-how-to-use-topics-subscriptions?tabs=connection-string
 
 // See https://aka.ms/new-console-template for more information

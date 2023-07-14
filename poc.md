@@ -67,3 +67,4 @@ performance, validate acceptance criteria (as defined in Build-out phase), and a
 - Test for the scale of subscriptions
 - Setup APIM manually w/ basic security in place
 - Import subset of BST Core API and route through for validation
+- Performance validation

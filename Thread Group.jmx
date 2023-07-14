@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.2">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true">
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments"/>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Thread Group" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <stringProp name="LoopController.loops">5</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">5</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.delayedStart">false</boolProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <jp.co.pnop.jmeter.protocol.azureservicebus.sampler.AzServiceBusSampler guiclass="jp.co.pnop.jmeter.protocol.azureservicebus.sampler.gui.AzServiceBusSamplerGui" testclass="jp.co.pnop.jmeter.protocol.azureservicebus.sampler.AzServiceBusSampler" testname="Azure Service Bus Sampler" enabled="true">
+          <boolProp name="createTransaction">false</boolProp>
+          <stringProp name="createTransacionName"></stringProp>
+          <boolProp name="continueTransaction">true</boolProp>
+          <boolProp name="commitTransaction">false</boolProp>
+          <boolProp name="rollbackTransaction">false</boolProp>
+          <elementProp name="messages" elementType="jp.co.pnop.jmeter.protocol.amqp.sampler.AzAmqpMessages" guiclass="jp.co.pnop.jmeter.protocol.azureservicebus.sampler.gui.AzServiceBusMessagesPanel" testclass="jp.co.pnop.jmeter.protocol.amqp.sampler.AzAmqpMessages" testname="[res_key=Azure Event Hubs Default]" enabled="true">
+            <collectionProp name="Messages.messages">
+              <elementProp name="bob" elementType="jp.co.pnop.jmeter.protocol.amqp.sampler.AzAmqpMessage">
+                <stringProp name="Message.messageType">String</stringProp>
+                <stringProp name="Message.message">bob</stringProp>
+                <stringProp name="Message.partitionKey"></stringProp>
+                <stringProp name="Message.messageId"></stringProp>
+                <stringProp name="Message.groupId"></stringProp>
+                <stringProp name="Message.customProperties"></stringProp>
+                <stringProp name="Message.contentType"></stringProp>
+                <stringProp name="Message.label"></stringProp>
+                <stringProp name="Message.standardProperties"></stringProp>
+              </elementProp>
+              <elementProp name="fred" elementType="jp.co.pnop.jmeter.protocol.amqp.sampler.AzAmqpMessage">
+                <stringProp name="Message.messageType">String</stringProp>
+                <stringProp name="Message.message">fred</stringProp>
+                <stringProp name="Message.partitionKey"></stringProp>
+                <stringProp name="Message.messageId"></stringProp>
+                <stringProp name="Message.groupId"></stringProp>
+                <stringProp name="Message.customProperties"></stringProp>
+                <stringProp name="Message.contentType"></stringProp>
+                <stringProp name="Message.label"></stringProp>
+                <stringProp name="Message.standardProperties"></stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <elementProp name="svcparams" elementType="jp.co.pnop.jmeter.protocol.azureservicebus.common.AzServiceBusClientParams" guiclass="jp.co.pnop.jmeter.protocol.azureservicebus.common.gui.AzServiceBusClientParamsPanel" testclass="jp.co.pnop.jmeter.protocol.azureservicebus.common.AzServiceBusClientParams" enabled="true">
+            <stringProp name="connectionType">Create New Connection</stringProp>
+            <stringProp name="definedConnectionName"></stringProp>
+            <stringProp name="connectionName"></stringProp>
+            <stringProp name="namespaceName">BST-test-sevicebusn01s.servicebus.windows.net</stringProp>
+            <stringProp name="authType">Shared access signature</stringProp>
+            <stringProp name="sharedAccessKeyName">servicebus_send_auth_rule</stringProp>
+            <stringProp name="sharedAccessKey">SfIaT1QZHE/GzLoPvoMXPUG0VgMye49Hq+ASbG0s+lw=</stringProp>
+            <stringProp name="aadCredential"></stringProp>
+            <stringProp name="destType">Topic</stringProp>
+            <stringProp name="queueName">y</stringProp>
+            <stringProp name="protocol">AMQP</stringProp>
+          </elementProp>
+        </jp.co.pnop.jmeter.protocol.azureservicebus.sampler.AzServiceBusSampler>
+        <hashTree/>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <url>true</url>
+              <threadCounts>true</threadCounts>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

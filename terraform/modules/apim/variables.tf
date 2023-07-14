@@ -12,16 +12,43 @@ variable "location" {
     error_message = "Err: environment must be one of: 'westus', 'eastus'."
   }
 }
+
 variable "tags" {
   type = map(string)
   description = "Base set of tags to use with the resource."
 }
 
-variable "namespace" {
-  type        = string
-  description = "Namespace to use for the queues."
+variable "operations" {
+  	type = list(object({
+        name = string
+        operation_name = string
+        method = string
+        url_template = string
+		xml_content = string
+	}))
 }
 
-variable "servicebus_objects" {
-    type = list(map(string))
+variable "apiAndOperation" {
+  type = list(object({
+    name = string
+    path = string
+    service_url = string
+  }))
 }
+
+variable "api_name" {
+  type        = string
+}
+
+variable "publisher_email" {
+  type        = string
+}
+
+variable "publisher_name" {
+  type        = string
+}
+
+variable "sku_name" {
+  type        = string
+}
+

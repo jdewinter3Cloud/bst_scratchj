@@ -4,8 +4,13 @@ resource "azurerm_servicebus_namespace" "this" {
   resource_group_name = var.rg_name
   sku                 = "Standard"
 
-  tags = {
-      source = "terraform"
+  tags = (merge(
+    var.tags,
+    tomap({})
+  ))
+
+  lifecycle {
+    ignore_changes = [tags]
   }
 }
 
@@ -19,6 +24,14 @@ resource "azurerm_servicebus_topic" "this" {
 
 
   enable_partitioning = true
+  # tags = (merge(
+  #   var.tags,
+  #   tomap({})
+  # ))
+
+  # lifecycle {
+  #   ignore_changes = [tags]
+  # }
 }
 
 resource "azurerm_servicebus_subscription" "this" {
@@ -27,6 +40,14 @@ resource "azurerm_servicebus_subscription" "this" {
   topic_id                             = each.value.id
   max_delivery_count                   = 1
   dead_lettering_on_message_expiration = true
+  # tags = (merge(
+  #   var.tags,
+  #   tomap({})
+  # ))
+
+  # lifecycle {
+  #   ignore_changes = [tags]
+  # }
 }
 
 resource "azurerm_servicebus_namespace_authorization_rule" "send" {
@@ -36,6 +57,14 @@ resource "azurerm_servicebus_namespace_authorization_rule" "send" {
   listen = false
   send   = true
   manage = false
+  # tags = (merge(
+  #   var.tags,
+  #   tomap({})
+  # ))
+
+  # lifecycle {
+  #   ignore_changes = [tags]
+  # }
 }
 
 resource "azurerm_servicebus_namespace_authorization_rule" "listen" {
@@ -45,6 +74,14 @@ resource "azurerm_servicebus_namespace_authorization_rule" "listen" {
   listen = true
   send   = false
   manage = false
+  # tags = (merge(
+  #   var.tags,
+  #   tomap({})
+  # ))
+
+  # lifecycle {
+  #   ignore_changes = [tags]
+  # }
 }
 
 output "send_connection_string" {
