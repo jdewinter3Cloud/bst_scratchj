@@ -1,0 +1,381 @@
+trigger:
+- develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  disable.coverage.autogenerate: 'true'
+
+  TEST_NETWORK_NAME: integration-service
+  TEST_CONTAINER_NAME: integration-service
+
+  DEFAULT_PYTHON_VERSION: '3.9'
+  PYTHON_PIPENV_VERSION: '2023.3.20'
+
+  DOCKER_IMAGE_BASE_VERSION: 0.5.0
+  DOCKER_BUILDKIT: 1
+  DOCKER_BASE_IMAGE_NAME: integration-prototype
+  DOCKER_IMAGE_USER_ID: 1000
+
+  ACR_SERVICE_CONNECTION_NAME: 'integration_acr'
+  ACR_CONTAINER_REGISTRY_NAME: 'IntegrationAcrEastUsBstTech.azurecr.io'
+  DEFAULT_SITE_HOSTNAME: 'IntegrationAcrEastUsBstTech.azurewebsites.net'
+
+  DOCKER_IMAGE_NAME: ${{ variables.DOCKER_BASE_IMAGE_NAME }}
+  DOCKER_DEBUG_IMAGE_NAME: ${{ variables.DOCKER_BASE_IMAGE_NAME }}-debug
+  TEST_IMAGE_NAME: ${{ variables.DOCKER_BASE_IMAGE_NAME }}-test
+
+stages:
+
+- stage: Lint
+
+  jobs:
+
+  - job: Lint
+
+    variables:
+      PRE_COMMIT_HOME: $(Pipeline.Workspace)/pre-commit-cache
+
+    steps:
+    - checkout: self
+      displayName: 'Checkout Repository'
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '${{ variables.DEFAULT_PYTHON_VERSION }}'
+      displayName: 'Setup Python ${{ variables.DEFAULT_PYTHON_VERSION }}'
+
+    - bash: |
+        python -m pip install --upgrade pip
+        pip install pipenv==${{ variables.PYTHON_PIPENV_VERSION }}
+        pipenv sync
+      displayName: 'Install PipEnv And Sync'
+
+    - bash: |
+        echo "##vso[task.setvariable variable=PY]$(python -VV)"
+      displayName: 'Prepare For Pre-Commit Cache'
+
+    - task: CacheBeta@0
+      inputs:
+        key: pre-commit | .pre-commit-config.yaml | "$(PY)"
+        path: $(PRE_COMMIT_HOME)
+      displayName: 'Enact pre-commit cache'
+
+    - task: UseDotNet@2
+      inputs:
+        version: '6.x'
+      displayName: 'Install DotNet 6.x'
+
+    - bash: |
+        dotnet tool install -g dotnet-format --version "6.*" --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet6/nuget/v3/index.json
+        dotnet restore
+      displayName: 'Install Required DotNot Packages'
+
+    - bash: |
+        pipenv run pre-commit run --all-files
+      displayName: 'Execute Pre-Commit'
+
+- stage: Terraform
+  dependsOn: Lint
+
+  jobs:
+
+  - job: Deploy
+
+    # variables:
+    #   IMAGE_VERSION: ${{ variables.DOCKER_IMAGE_BASE_VERSION }}-$(Build.BuildId)
+    steps:
+
+    - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+      inputs:
+        terraformVersion: 1.2.8
+      displayName: "Install Terraform 1.2.8"
+
+    # - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV2@2
+    #   inputs:
+    #     backendServiceArm: "BST Global - Platform & Integration Sandbox (beac1dea-fb2c-4a3e-a3b8-64056f8d2e5c)"
+    #     backendAzureRmResourceGroupName: "bst_integration_tfstatev2l3fb36nnm1"
+    #     backendAzureRmStorageAccountName: dwt0tfstate0v2l3fb36nnm1
+    #     backendAzureRmContainerName: tfstate
+    #     backendAzureRmKey: "terraform.tfstate"
+    #     workingDirectory: "$(System.DefaultWorkingDirectory)/ci/terraform"
+    #   displayName: "Terraform : Init"
+
+    # - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV2@2
+    #   inputs:
+    #     command: validate
+    #     workingDirectory: "$(System.DefaultWorkingDirectory)/ci/terraform"
+    #   displayName: "Terraform : Validate"
+
+    # - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV2@2
+    #   inputs:
+    #     command: plan
+    #     # commandOptions: '-out=tfplan -var="server_name=$(webServerName)" -var="admin_username=$(adminUser)" -var="admin_password=$(adminPwd)" -var="vm_size=$(vmSize)"'
+    #     commandOptions: '-out=tfplan'
+    #     environmentServiceNameAzureRM: "BST Global (fedcd6f0-2999-4fca-9f94-65807bfcf266)"
+    #     workingDirectory: "$(System.DefaultWorkingDirectory)/ci/terraform"
+    #   displayName: "Terraform : Plan"
+
+    # - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV2@2
+    #   inputs:
+    #     command: apply
+    #     commandOptions: "tfplan"
+    #     environmentServiceNameAzureRM: "BST Global (fedcd6f0-2999-4fca-9f94-65807bfcf266)"
+    #     workingDirectory: "$(System.DefaultWorkingDirectory)/ci/terraform"
+    #   displayName: "Terraform : Apply"
+
+- stage: BuildAndTestImage
+  dependsOn: Lint
+
+  jobs:
+
+  - job: BuildImage
+
+    variables:
+      IMAGE_VERSION: ${{ variables.DOCKER_IMAGE_BASE_VERSION }}-$(Build.BuildId)
+    steps:
+
+    - checkout: self
+      displayName: 'Checkout Repository'
+
+    - bash: |
+        SEMVER_VERSION=${{ variables.DOCKER_IMAGE_BASE_VERSION }}+$(Build.BuildId)
+
+        # # Make sure to overwrite the version.py file with the new information.
+        # echo "namespace webapi.Models;"                                     > $(Build.SourcesDirectory)/src/webapi/Models/Version.cs
+        # echo "public class Version"                                         >> $(Build.SourcesDirectory)/src/webapi/Models/Version.cs
+        # echo "{"                                                            >> $(Build.SourcesDirectory)/src/webapi/Models/Version.cs
+        # echo "  public static string MyVersion => \"${SEMVER_VERSION}\";"   >> $(Build.SourcesDirectory)/src/webapi/Models/Version.cs
+        # echo "  public string CurrentVersion { get { return MyVersion; } }" >> $(Build.SourcesDirectory)/src/webapi/Models/Version.cs
+        # echo "}"                                                            >> $(Build.SourcesDirectory)/src/webapi/Models/Version.cs
+      displayName: 'Stamp the code with the version information.'
+
+    - task: Docker@2
+      inputs:
+        command: buildAndPush
+        containerRegistry: ${{ variables.ACR_SERVICE_CONNECTION_NAME }}
+        Dockerfile: ./src/Dockerfile
+        buildContext: src
+        repository: ${{ variables.DOCKER_DEBUG_IMAGE_NAME }}
+        tags: ${{ variables.IMAGE_VERSION }}
+      displayName: Build debug Docker image
+
+    - task: Docker@2
+      inputs:
+        command: buildAndPush
+        containerRegistry: ${{ variables.ACR_SERVICE_CONNECTION_NAME }}
+        Dockerfile: ./src/Dockerfile
+        buildContext: src
+        repository: ${{ variables.DOCKER_IMAGE_NAME }}
+        tags: ${{ variables.IMAGE_VERSION }}
+      displayName: Build release Docker image
+
+- job: TestImage
+
+  dependsOn: BuildImage
+  variables:
+    IMAGE_VERSION: ${{ variables.DOCKER_IMAGE_BASE_VERSION }}-$(Build.BuildId)
+  steps:
+
+    - checkout: self
+      displayName: 'Checkout Repository'
+
+    - bash: |
+        # As the image sets the user to a non-root user (best practices), we have to use the user id that
+        # we assigned to the user if we want to give any permissions within the executing container. We
+        # can now use that to give the container's non-root user ownership of the new directories that we
+        # created to share data.  Without these two parts together (set new user id and chown with that id),
+        # the container user has no rights to write the reports to the mounted volume.
+        #
+        # https://stackoverflow.com/questions/39397548/how-to-give-non-root-user-in-docker-container-access-to-a-volume-mounted-on-the
+        mkdir -p $(Build.SourcesDirectory)/report
+        mkdir -p $(Build.SourcesDirectory)/data
+
+        ls -la $(Build.SourcesDirectory)/report/
+        ls -la $(Build.SourcesDirectory)
+
+        a1=`stat -c '%U' $(Build.SourcesDirectory)/report`
+        echo "a1=$a1"
+
+        sudo chown -R ${{ variables.DOCKER_IMAGE_USER_ID }} $(Build.SourcesDirectory)/report
+        sudo chown -R ${{ variables.DOCKER_IMAGE_USER_ID }} $(Build.SourcesDirectory)/data
+      displayName: Setup Test Data Directories
+
+    - task: Docker@2
+      inputs:
+        command: login
+        containerRegistry: ${{ variables.ACR_SERVICE_CONNECTION_NAME }}
+      displayName: Login to ACR
+
+    - bash: |
+        TEST_MODE=debug
+        IMAGE_PATH=${{ variables.ACR_CONTAINER_REGISTRY_NAME }}/${{ variables.DOCKER_DEBUG_IMAGE_NAME }}:${{ variables.IMAGE_VERSION }}
+
+        # Start the docker image is detached mode to allow the integration tests to hit it.
+        if [ "$TEST_MODE" == "debug" ] ; then
+          echo "Testing against debug image '$IMAGE_PATH'."
+          docker run --rm -d -v $(Build.SourcesDirectory)/data:/app/data --network=${{ variables.TEST_NETWORK_NAME }} --name ${{ variables.TEST_CONTAINER_NAME }} -p 5000:5000 $IMAGE_PATH /bin/bash -c \
+            "/source/execute_for_tests.sh --coverage"
+        else
+          echo "Testing against image '$IMAGE_PATH'."
+          docker run --rm -d --network=${{ variables.TEST_NETWORK_NAME }} --name ${{ variables.TEST_CONTAINER_NAME }} -p 5000:5000 $IMAGE_PATH /bin/bash -c \
+            "/source/execute_for_tests.sh"
+        fi
+        sleep 2
+        docker logs ${{ variables.TEST_CONTAINER_NAME }} || echo "Unable to get container logs for ${{ variables.TEST_CONTAINER_NAME }}."
+      displayName: 'Start Docker Image Container in Detached Mode'
+
+    - bash: |
+        TEST_MODE=debug
+        IMAGE_PATH=${{ variables.ACR_CONTAINER_REGISTRY_NAME }}/${{ variables.TEST_IMAGE_NAME }}:${{ variables.IMAGE_VERSION }}
+
+        # Run all the tests with coverage enabled.  This captures any coverage that is generated locally by the test.
+        if [ "$TEST_MODE" == "debug" ] ; then
+          docker run -v $(Build.SourcesDirectory)/data:/app/data -v $(Build.SourcesDirectory)/report:/app/report --network=${{ variables.TEST_NETWORK_NAME }} --rm $IMAGE_PATH /bin/bash -c \
+            "export SERVER_INSTANCE_HOST_NAME=dotnet-webapp-test ; dotnet coverage collect --output /app/data/coverage.tests.xml --output-format cobertura dotnet test --logger:html --logger:junit --results-directory:/app/report/test-results"
+        else
+          docker run -v $(Build.SourcesDirectory)/data:/app/data -v $(Build.SourcesDirectory)/report:/app/report --network=${{ variables.TEST_NETWORK_NAME }} --rm $IMAGE_PATH /bin/bash -c \
+            "export SERVER_INSTANCE_HOST_NAME=dotnet-webapp-test ; dotnet test --logger:html --logger:junit --results-directory:/app/report/test-results"
+        fi
+      displayName: 'Run All Available Tests'
+
+    - bash: |
+        # Request that the service stop peacefully. If that does not work, force it closed.
+        # If the peaceful request succeeded, coverage data will be written to the mounted `/app/data` directory.
+        echo "Requesting peaceful stop of Docker container..."
+        docker kill --signal="SIGTERM" ${{ variables.TEST_CONTAINER_NAME }}
+        sleep 10
+        docker ps
+
+        ls -la $(Build.SourcesDirectory)/data
+        # If the stop happened peacefully, the container should have exitted within the 10 seconds.  If not, the ports
+        # command should return the ports available, and hence means we need to stop it.
+        if docker port ${{ variables.TEST_CONTAINER_NAME }} ; then
+          echo "Stopping container."
+          docker stop ${{ variables.TEST_CONTAINER_NAME }}
+          exit 1
+        else
+          echo "Container already stopped."
+        fi
+        ls -la $(Build.SourcesDirectory)/data
+      condition: always()
+      displayName: 'Stop Docker Image Container After Tests Completed'
+
+    - bash: |
+        docker network rm ${{ variables.TEST_NETWORK_NAME }}
+      condition: always()
+      continueOnError: true
+      displayName: 'Delete custom network'
+
+    - bash: |
+        OLD_OWNER=vsts
+
+        sudo chown -R $OLD_OWNER $(Build.SourcesDirectory)/report
+        sudo chown -R $OLD_OWNER $(Build.SourcesDirectory)/data
+
+        ls -la $(Build.SourcesDirectory)/report/
+        ls -la $(Build.SourcesDirectory)
+
+        mkdir $(Build.SourcesDirectory)/report/coverage
+
+        ls -la $(Build.SourcesDirectory)/report/
+        ls -la $(Build.SourcesDirectory)
+
+      condition: always()
+      displayName: 'Reset Generated Directories Owners'
+
+    - task: reportgenerator@5
+      inputs:
+        reports: '$(Build.SourcesDirectory)/data/coverage.*.xml'
+        targetdir: '$(Build.SourcesDirectory)/report/coverage'
+        reporttypes: 'HtmlInline_AzurePipelines;Badges;Cobertura'
+        sourcedirs: '$(Build.SourcesDirectory)/mywebapp'
+        assemblyfilters: '-myWebAppTest;-Spekt.TestLogger'
+      displayName: 'Compose Coverage Reports'
+
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: Cobertura
+        summaryFileLocation: '$(Build.SourcesDirectory)/report/coverage/Cobertura.xml'
+        reportDirectory: '$(Build.SourcesDirectory)/report/coverage'
+      condition: always()
+      displayName: 'Publish code coverage results'
+
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '$(Build.SourcesDirectory)/report/test-results/*.xml'
+      condition: always()
+      displayName: 'Publish Test Results'
+
+    - publish: |
+        $(Build.SourcesDirectory)/report
+      artifact: my-artifact
+      condition: not(canceled())
+      displayName: 'Archive Generated Reports'
+
+    - publish: |
+        $(Build.SourcesDirectory)/data
+      artifact: my-artifact-data
+      condition: not(canceled())
+      displayName: 'Archive Raw Test Data'
+
+- stage: DeployToDev
+  dependsOn: BuildAndTestImage
+
+  jobs:
+
+  - job: DeployImage
+    variables:
+      IMAGE_VERSION: ${{ variables.DOCKER_IMAGE_BASE_VERSION }}-$(Build.BuildId)
+
+    steps:
+
+    - task: Docker@2
+      inputs:
+        command: login
+        containerRegistry: ${{ variables.ACR_SERVICE_CONNECTION_NAME }}
+      displayName: Login to ACR
+
+    - bash: |
+        IMAGE_PATH=${{ variables.ACR_CONTAINER_REGISTRY_NAME }}/${{ variables.DOCKER_IMAGE_NAME }}:${{ variables.IMAGE_VERSION }}
+
+        docker pull $IMAGE_PATH
+      displayName: Pull Docker Image From ACR
+
+    - bash: |
+        IMAGE_PATH=${{ variables.ACR_CONTAINER_REGISTRY_NAME }}/${{ variables.DOCKER_IMAGE_NAME }}:${{ variables.IMAGE_VERSION }}
+        NEW_IMAGE_PATH=${{ variables.ACR_CONTAINER_REGISTRY_NAME }}/${{ variables.DOCKER_IMAGE_NAME }}:latest
+
+        docker tag $IMAGE_PATH $NEW_IMAGE_PATH
+        docker push $NEW_IMAGE_PATH
+      displayName: Re-Tag and Push image to Azure Container Registry
+
+  - job: VerifyImageDeployment
+    dependsOn: DeployImage
+    variables:
+      IMAGE_VERSION: ${{ variables.DOCKER_IMAGE_BASE_VERSION }}-$(Build.BuildId)
+
+    steps:
+
+    - checkout: self
+      displayName: 'Checkout Repository'
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '${{ variables.DEFAULT_PYTHON_VERSION }}'
+      displayName: 'Setup Python ${{ variables.DEFAULT_PYTHON_VERSION }}'
+
+    - bash: |
+        python -m pip install --upgrade pip
+        pip install pipenv==${{ variables.PYTHON_PIPENV_VERSION }}
+        pipenv sync
+      displayName: 'Install PipEnv And Sync'
+
+    - bash: |
+        SEMVER_VERSION=${{ variables.DOCKER_IMAGE_BASE_VERSION }}+$(Build.BuildId)
+
+        pipenv run python $(Build.SourcesDirectory)/utils/verify_deployment.py --timeout 300 --version "$SEMVER_VERSION" \
+          --url "https://${{ variables.DEFAULT_SITE_HOSTNAME }}/Privacy"
+      displayName: 'Test For New Version Post Deployment'

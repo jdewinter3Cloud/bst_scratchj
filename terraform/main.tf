@@ -1,9 +1,9 @@
 # https://learn.microsoft.com/en-us/azure/api-management/quickstart-terraform?tabs=azure-cli
 # https://www.linkedin.com/pulse/terraform-azure-api-management-c%C6%B0%C6%A1ng-v%C5%A9/
 
-provider "azurerm" {
-  features {}
-#   subscription_id = local.subscription_id
+variable "xx" {
+  type        = string
+  description = "xx."
 }
 
 locals {
@@ -11,8 +11,13 @@ locals {
 #   macroservice_name    = "name"
   servicebus_namespace = "A-service-bus-dev"
   api_name = "bob"
-  prefix = "BST-test"
-  location = "westus"
+  prefix   = "BST-3C"
+  location = "eastus"
+  common_suffix = "-test"
+
+  acr_image_name = "service-xxx"
+  acr_image_tag = "latest"
+
   common_tags = {
     Component   = "bst-test"
     Environment = "Development"
@@ -110,6 +115,56 @@ module "apim" {
     sku_name = "Developer_1"
 }
 
+#
+# Provide for the necessary infrastructure to host the image.
+#
+module "docker-application" {
+  source   = "./modules/docker-application"
+
+  rg_name         = azurerm_resource_group.test.name
+  location        = azurerm_resource_group.test.location
+  tags            = local.common_tags
+  common_prefix   = local.prefix
+  adjusted_prefix = local.adjusted_prefix
+  common_suffix   = local.common_suffix
+
+  acr_id           = module.container-registry.id
+  acr_name         = module.container-registry.name
+  acr_login_server = module.container-registry.login_server
+
+  app_insights_connection_string = one(module.application-insights[*].connection_string)
+
+  image_name = local.acr_image_name
+  image_tag  = local.acr_image_tag
+}
+
+#
+# Make sure to provide for an ACR to hold the images.
+#
+module "container-registry" {
+  source = "./modules/container-registry"
+
+  rg_name         = azurerm_resource_group.test.name
+  location        = azurerm_resource_group.test.location
+  tags            = local.common_tags
+  adjusted_prefix = local.adjusted_prefix
+  common_suffix   = local.common_suffix
+
+  admin_enabled = var.allow_admin_acr_access
+}
+
+#
+# Optionally enable application insights to provide observability.
+#
+module "application-insights" {
+  source = "./modules/app-insights"
+  count  = var.allocate_application_insights == true ? 1 : 0
+
+  rg_name  = azurerm_resource_group.test.name
+  location = azurerm_resource_group.test.location
+  tags     = local.common_tags
+}
+
 resource "azurerm_user_assigned_identity" "example" {
   resource_group_name = azurerm_resource_group.test.name
   location = "westus2"
@@ -157,33 +212,3 @@ output "resource_group_name" {
 output "api_management_service_name" {
   value = module.apim.api_name
 }
-
-# resource “azurerm_storage_account” “test” {
-# name = “xyzstorageaccount09”
-# resource_group_name = “${azurerm_resource_group.test.name}”
-# location = “${azurerm_resource_group.test.location}”
-# account_tier = “Standard”
-# account_replication_type = “LRS”
-# }
-
-# resource “azurerm_app_service_plan” “test” {
-# name = “azure-functions-test-service-plan”
-# location = “${azurerm_resource_group.test.location}”
-# resource_group_name = “${azurerm_resource_group.test.name}”
-# kind = “FunctionApp”
-# sku {
-# tier = “Dynamic”
-# size = “Y1”
-# }
-# }
-
-# resource “azurerm_function_app” “test” {
-# name = “test-xyzcompany-functions”
-# location = “${azurerm_resource_group.test.location}”
-# resource_group_name = “${azurerm_resource_group.test.name}”
-# app_service_plan_id = “${azurerm_app_service_plan.test.id}”
-# storage_connection_string = “${azurerm_storage_account.test.primary_connection_string}”
-# app_settings = {
-# “ServiceBusConnectionString” = “some-value”
-# }
-# }
